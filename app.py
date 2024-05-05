@@ -2,7 +2,11 @@ import streamlit as st
 from PIL import Image
 from googletrans import Translator
 from gtts import gTTS
-import os
+# from transformers import pipeline
+from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer
+from transformers import BlipProcessor, BlipForConditionalGeneration
+from transformers import BlipProcessor, BlipForConditionalGeneration
+
 
 def translate_text(text, target_language):
     translator = Translator()
@@ -25,31 +29,52 @@ st.write("2]BLIP: Bootstrapping Language-Image Pre-training for Unified Vision-L
 
 uploaded_file = st.file_uploader("Choose an image", type=["jpg", "jpeg", "png"])
 
-from transformers import pipeline
-
 if uploaded_file is not None:
 
  if model_name == "VIT-GPT-2":
     st.write("VIT-GPT-2 model is selected.")
-    image_to_text = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning")
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Image.", use_column_width=True)
-    st.write(image_to_text(image)[0]["generated_text"])
-    text_to_speech(image_to_text(image)[0]["generated_text"])
+    # image_to_text = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning")
+    
+    model = VisionEncoderDecoderModel.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+    feature_extractor = ViTImageProcessor.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+    tokenizer = AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+    image1 = Image.open(uploaded_file)
+    st.image(image1, caption="Uploaded Image.", use_column_width=True)
+    max_length = 16
+    num_beams = 4
+    gen_kwargs = {"max_length": max_length, "num_beams": num_beams}
+    pixel_values = feature_extractor(images=[image1], return_tensors="pt").pixel_values
+    output_ids = model.generate(pixel_values, **gen_kwargs)
+    preds = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+    preds = [pred.strip() for pred in preds]
+    st.write(preds[0])
+    text_to_speech(preds[0])
     st.audio("output.mp3")
  elif model_name == "BLIP-Large":
     st.write("BLIP-Large model is selected.")
-    image_to_text = pipeline("image-to-text", model="Salesforce/blip-image-captioning-large")
+    # image_to_text = pipeline("image-to-text", model="Salesforce/blip-image-captioning-large")
+    
+    processor_blip_large = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
+    model_blip_large = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large")
     image = Image.open(uploaded_file)
     st.image(image, caption="Uploaded Image.", use_column_width=True)
-    st.write(image_to_text(image)[0]["generated_text"])
-    text_to_speech(image_to_text(image)[0]["generated_text"])
+    inputs = processor_blip_large(image, return_tensors="pt")
+    out = model_blip_large.generate(**inputs)
+    # st.write(image_to_text(image)[0]["generated_text"])
+    # text_to_speech(image_to_text(image)[0]["generated_text"])
+    st.write(processor_blip_large.decode(out[0], skip_special_tokens=True))
+    text_to_speech(processor_blip_large.decode(out[0], skip_special_tokens=True))
     st.audio("output.mp3")
  else:
     st.write("BLIP-Base model is selected.")
-    image_to_text = pipeline("image-to-text", model="Salesforce/blip-image-captioning-large")
+    # image_to_text = pipeline("image-to-text", model="Salesforce/blip-image-captioning-large")
+    
+    processor_blip = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model_blip = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
     image = Image.open(uploaded_file)
     st.image(image, caption="Uploaded Image.", use_column_width=True)
-    st.write(image_to_text(image)[0]["generated_text"])
-    text_to_speech(image_to_text(image)[0]["generated_text"])
+    inputs = processor_blip(image, return_tensors="pt")
+    out = model_blip.generate(**inputs)
+    st.write(processor_blip.decode(out[0], skip_special_tokens=True))
+    text_to_speech(processor_blip.decode(out[0], skip_special_tokens=True))
     st.audio("output.mp3")
