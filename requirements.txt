@@ -1,4 +1,5 @@
-streamlit==1.28.1
-googletrans==4.0.0-rc1
+streamlit==4.40.1
+googletrans==3.0.0
 gtts==2.5.1
 transformers==4.38.1
+Pillow==10.0.1
